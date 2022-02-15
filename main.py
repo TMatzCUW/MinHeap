@@ -1,234 +1,143 @@
-# A Python program for Prims's MST for
-# adjacency list representation of graph
 import csv
-
-from collections import defaultdict
-import sys
+import timeit
 
 
-class Heap():
+def parent(i):
+    return (i - 1) // 2
 
+
+class MinHeap:
     def __init__(self):
-        self.array = []
         self.size = 0
-        self.pos = []
+        self.arr = []   #two elements, [vertice, weight]
+        self.pos = {}   #list[vertice, index]
 
-    def newMinHeapNode(self, v, dist):
-        minHeapNode = [v, dist]
-        return minHeapNode
+    def swap(self, i, j):
+        pos_i = self.arr[i][0]
+        pos_j = self.arr[j][0]
+        self.arr[i], self.arr[j] = self.arr[j], self.arr[i]
+        self.pos[pos_i] = j
+        self.pos[pos_j] = i
 
-    # A utility function to swap two nodes of
-    # min heap. Needed for min heapify
-    def swapMinHeapNode(self, a, b):
-        t = self.array[a]
-        self.array[a] = self.array[b]
-        self.array[b] = t
-
-    # A standard function to heapify at given idx
-    # This function also updates position of nodes
-    # when they are swapped. Position is needed
-    # for decreaseKey()
-    def minHeapify(self, idx):
-        smallest = idx
-        left = 2 * idx + 1
-        right = 2 * idx + 2
-
-        if left < self.size and self.array[left][1] < \
-                self.array[smallest][1]:
-            smallest = left
-
-        if right < self.size and self.array[right][1] < \
-                self.array[smallest][1]:
-            smallest = right
-
-        # The nodes to be swapped in min heap
-        # if idx is not smallest
-        if smallest != idx:
-            # Swap positions
-            self.pos[self.array[smallest][0]] = idx
-            self.pos[self.array[idx][0]] = smallest
-
-            # Swap nodes
-            self.swapMinHeapNode(smallest, idx)
-
-            self.minHeapify(smallest)
-
-    # Standard function to extract minimum node from heap
-    def extractMin(self):
-
-        # Return NULL wif heap is empty
-        if self.isEmpty() == True:
+    def heapify(self, i):
+        if i < 0:
             return
 
-        # Store the root node
-        root = self.array[0]
+        smallest = i
+        left = 2 * i + 1
+        right = 2 * i + 2
 
-        # Replace root node with last node
-        lastNode = self.array[self.size - 1]
-        self.array[0] = lastNode
+        if left < self.size and self.arr[smallest][1] > self.arr[left][1]:
+            smallest = left
 
-        # Update position of last node
+        if right < self.size and self.arr[smallest][1] > self.arr[right][1]:
+            smallest = right
+
+        if smallest != i:
+            self.swap(i, smallest)
+            self.heapify(smallest)
+
+    def heapifyTraverse(self, k):
+        i = parent(k)
+
+        if i < 0:
+            return
+
+        smallest = i
+        left = 2 * i + 1
+        right = 2 * i + 2
+
+        if left < self.size and self.arr[smallest][1] > self.arr[left][1]:
+            smallest = left
+
+        if right < self.size and self.arr[smallest][1] > self.arr[right][1]:
+            smallest = right
+
+        if smallest != i:
+            self.swap(i, smallest)
+            self.heapifyTraverse(smallest)
+
+    def heappush(self, v, l):
+        self.arr.append([v, l])
+        self.pos[v] = self.size
+        self.size = self.size + 1
+        self.heapifyTraverse(self.size - 1)
+
+    def getMin(self):
+        return self.arr[0]
+
+    def extrudeMin(self):
+        if self.size == 0:
+            return
+
+        root = self.arr[0]
+        lastNode = self.arr[self.size - 1]
+
+        self.arr[0] = lastNode
         self.pos[lastNode[0]] = 0
         self.pos[root[0]] = self.size - 1
+        self.size = self.size - 1
 
-        # Reduce heap size and heapify root
-        self.size -= 1
-        self.minHeapify(0)
-
+        self.heapify(0)
         return root
 
-    def isEmpty(self):
-        return True if self.size == 0 else False
+    def decreaseKey(self, v, l):
+        self.arr[self.pos[v]][1] = l
+        self.heapifyTraverse(self.pos[v])
 
-    def decreaseKey(self, v, dist):
-
-        # Get the index of v in heap array
-
-        i = self.pos[v]
-
-        # Get the node and update its dist value
-        self.array[i][1] = dist
-
-        # Travel up while the complete tree is not
-        # hepified. This is a O(Logn) loop
-        while i > 0 and self.array[i][1] < \
-                self.array[(i - 1) // 2][1]:
-            # Swap this node with its parent
-            self.pos[self.array[i][0]] = (i - 1) / 2
-            self.pos[self.array[(i - 1) // 2][0]] = i
-            self.swapMinHeapNode(i, (i - 1) // 2)
-
-            # move to parent index
-            i = (i - 1) // 2;
-
-    # A utility function to check if a given vertex
-    # 'v' is in min heap or not
     def isInMinHeap(self, v):
-
         if self.pos[v] < self.size:
             return True
         return False
 
 
-def printArr(parent, n):
-    for i in range(1, n):
-        print("% d - % d" % (parent[i], i))
+class Graph:
+    def __init__(self):
+        self.V = []
 
+    def importGraph(self, v):
+        self.V = v
 
-class Graph():
+    def process(self):
+        degree = len(self.V)
+        MST = []
+        E = MinHeap()
 
-    def __init__(self, V):
-        self.V = V
-        self.graph = defaultdict(list)
+        currentNode = [0, 0]
+        MST.append(currentNode)
 
-    def read(self, v):
-        self.data = v
-        self.size = len(v)
+        for i in range(1, degree):
+            if i == 1:
+                for j in range(1, degree):
+                    E.heappush(j, self.V[0][j])
+            else:
+                lastVertice = currentNode[0]
+                for j in range(1, degree):
+                    if E.isInMinHeap(j):
+                        if E.arr[E.pos[j]][1] > self.V[lastVertice][j]:
+                            E.decreaseKey(j, self.V[lastVertice][j])
+            currentNode = E.extrudeMin()
+            MST.append(currentNode)
 
-    # Adds an edge to an undirected graph
-    def addEdge(self, src, dest, weight):
+        totalLength = 0
+        last = 0
+        for p in MST:
+            if p[0] != 0:
+                totalLength = totalLength + p[1]
+                print(last, " - ", p[0])
+                last = p[0]
+        print("Total distance of Minimum Spanning Tree is: ", totalLength)
 
-        # Add an edge from src to dest. A new node is
-        # added to the adjacency list of src. The node
-        # is added at the beginning. The first element of
-        # the node has the destination and the second
-        # elements has the weight
-        newNode = [dest, weight]
-        self.graph[src].insert(0, newNode)
+def readCSV(filename):
+    v = []
+    with open(filename, 'r', newline='') as file:
+        myreader = csv.reader(file, delimiter=',')
+        for rows in myreader:
+            v.append([int(i) for i in rows])
+    return v
 
-        # Since graph is undirected, add an edge from
-        # dest to src also
-        newNode = [src, weight]
-        self.graph[dest].insert(0, newNode)
-
-    # The main function that prints the Minimum
-    # Spanning Tree(MST) using the Prim's Algorithm.
-    # It is a O(ELogV) function
-    def PrimMST(self):
-        # Get the number of vertices in graph
-        V = self.V
-
-        # key values used to pick minimum weight edge in cut
-        key = []
-
-        # List to store contructed MST
-        parent = []
-
-        # minHeap represents set E
-        minHeap = Heap()
-
-        # Initialize min heap with all vertices. Key values of all
-        # vertices (except the 0th vertex) is is initially infinite
-        for v in range(V):
-            parent.append(-1)
-            key.append(1e7)
-            minHeap.array.append(minHeap.newMinHeapNode(v, key[v]))
-            minHeap.pos.append(v)
-
-        # Make key value of 0th vertex as 0 so
-        # that it is extracted first
-        minHeap.pos[0] = 0
-        key[0] = 0
-        minHeap.decreaseKey(0, key[0])
-
-        # Initially size of min heap is equal to V
-        minHeap.size = V;
-
-        # In the following loop, min heap contains all nodes
-        # not yet added in the MST.
-        while minHeap.isEmpty() == False:
-
-            # Extract the vertex with minimum distance value
-            newHeapNode = minHeap.extractMin()
-            u = newHeapNode[0]
-
-            # Traverse through all adjacent vertices of u
-            # (the extracted vertex) and update their
-            # distance values
-            for pCrawl in self.graph[u]:
-
-                v = pCrawl[0]
-
-                # If shortest distance to v is not finalized
-                # yet, and distance to v through u is less than
-                # its previously calculated distance
-                if minHeap.isInMinHeap(v) and pCrawl[1] < key[v]:
-                    key[v] = pCrawl[1]
-                    parent[v] = u
-
-                    # update distance value in min heap also
-                    minHeap.decreaseKey(v, key[v])
-
-        printArr(parent, V)
-
-
-# Driver program to test the above functions
-graph = Graph(9)
-graph.addEdge(0, 1, 4)
-graph.addEdge(0, 7, 8)
-graph.addEdge(1, 2, 8)
-graph.addEdge(1, 7, 11)
-graph.addEdge(2, 3, 7)
-graph.addEdge(2, 8, 2)
-graph.addEdge(2, 5, 4)
-graph.addEdge(3, 4, 9)
-graph.addEdge(3, 5, 14)
-graph.addEdge(4, 5, 10)
-graph.addEdge(5, 6, 2)
-graph.addEdge(6, 7, 1)
-graph.addEdge(6, 8, 6)
-graph.addEdge(7, 8, 7)
-#graph.PrimMST()
-
-v=[]
-with open('graph.csv', 'r', newline='') as file:
-    myreader = csv.reader(file, delimiter=',')
-    for rows in myreader:
-        r=[]
-        for i in rows:
-            r.append(int(i))
-        v.append(r)
-g=Graph(len(v))
-g.read(v)
-g.PrimMST()
-# This code is contributed by Divyanshu Mehta
+g = readCSV('graph.csv')
+graph = Graph()
+graph.importGraph(g)
+# graph.process()
+print(timeit.Timer(graph.process).repeat(number=1))
