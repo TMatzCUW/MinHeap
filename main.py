@@ -1,143 +1,126 @@
-import csv
+import random
+
+#the left sibling child position is parent * 2, right sibling child position is parrent * 2 + 1
 import timeit
 
 
-def parent(i):
-    return (i - 1) // 2
+def GetParentPosition(position):    #get the parent position from child position
+    return position // 2
 
 
 class MinHeap:
+    array = []
+    count = 0
     def __init__(self):
-        self.size = 0
-        self.arr = []   #two elements, [vertice, weight]
-        self.pos = {}   #list[vertice, index]
+        self.array.append({
+            "value": 0,
+            "index": 0,
+            "connect": 0
+        })
 
-    def swap(self, i, j):
-        pos_i = self.arr[i][0]
-        pos_j = self.arr[j][0]
-        self.arr[i], self.arr[j] = self.arr[j], self.arr[i]
-        self.pos[pos_i] = j
-        self.pos[pos_j] = i
+    def HeapPush(self, value, index, connect):  #add a new node to the tree
+        self.array.append({
+            "value": value,
+            "index": index,
+            "connect": connect
+        })
+        self.count += 1
+        self.HeapifyUp(self.Size())
 
-    def heapify(self, i):
-        if i < 0:
+    def ExtrudeMin(self):   #take out the root and rebalance the tree
+        returnNode = self.GetNode(1)
+        lastNode = self.array.pop()
+        self.count -= 1
+        if self.count > 0:
+            self.array[1] = lastNode
+        self.HeapifyDown(1)
+        return returnNode
+
+    def HeapifyUp(self, position):  #balance the Heap Tree from low to high
+        if position <= 1:
             return
 
-        smallest = i
-        left = 2 * i + 1
-        right = 2 * i + 2
+        parentPosition = GetParentPosition(position)
+        parentNode = self.GetNode(parentPosition)
 
-        if left < self.size and self.arr[smallest][1] > self.arr[left][1]:
-            smallest = left
+        leftPosition = parentPosition * 2
+        leftNode = self.GetNode(leftPosition)
+        rightPosition = parentPosition * 2 + 1
+        rightNode = self.GetNode(rightPosition)
 
-        if right < self.size and self.arr[smallest][1] > self.arr[right][1]:
-            smallest = right
+        node = 0 #node = 1, means the leftNode is the smallest, and node = 2 means the rightNode is the smallest
+        if leftNode is not None and leftNode["value"] < parentNode["value"]:
+            node = 1
+        if rightNode is not None and ((node == 1 and rightNode["value"] < leftNode["value"]) or (node == 0 and rightNode["value"] < parentNode["value"])):
+            node = 2
+        if node == 1:
+            self.array[leftPosition], self.array[parentPosition] = self.array[parentPosition], self.array[leftPosition]
+        elif node == 2:
+            self.array[rightPosition], self.array[parentPosition] = self.array[parentPosition], self.array[rightPosition]
 
-        if smallest != i:
-            self.swap(i, smallest)
-            self.heapify(smallest)
-
-    def heapifyTraverse(self, k):
-        i = parent(k)
-
-        if i < 0:
-            return
-
-        smallest = i
-        left = 2 * i + 1
-        right = 2 * i + 2
-
-        if left < self.size and self.arr[smallest][1] > self.arr[left][1]:
-            smallest = left
-
-        if right < self.size and self.arr[smallest][1] > self.arr[right][1]:
-            smallest = right
-
-        if smallest != i:
-            self.swap(i, smallest)
-            self.heapifyTraverse(smallest)
-
-    def heappush(self, v, l):
-        self.arr.append([v, l])
-        self.pos[v] = self.size
-        self.size = self.size + 1
-        self.heapifyTraverse(self.size - 1)
-
-    def getMin(self):
-        return self.arr[0]
-
-    def extrudeMin(self):
-        if self.size == 0:
-            return
-
-        root = self.arr[0]
-        lastNode = self.arr[self.size - 1]
-
-        self.arr[0] = lastNode
-        self.pos[lastNode[0]] = 0
-        self.pos[root[0]] = self.size - 1
-        self.size = self.size - 1
-
-        self.heapify(0)
-        return root
-
-    def decreaseKey(self, v, l):
-        self.arr[self.pos[v]][1] = l
-        self.heapifyTraverse(self.pos[v])
-
-    def isInMinHeap(self, v):
-        if self.pos[v] < self.size:
-            return True
-        return False
+        if node != 0:
+            self.HeapifyUp(parentPosition)
 
 
-class Graph:
-    def __init__(self):
-        self.V = []
+    def HeapifyDown(self, position):    #balance the tree from high to low
+        parentPosition = position
+        parentNode = self.GetNode(parentPosition)
 
-    def importGraph(self, v):
-        self.V = v
+        leftPosition = parentPosition * 2
+        leftNode = self.GetNode(leftPosition)
+        rightPosition = parentPosition * 2 + 1
+        rightNode = self.GetNode(rightPosition)
 
-    def process(self):
-        degree = len(self.V)
-        MST = []
-        E = MinHeap()
+        node = 0  # node = 1, means the leftNode is the smallest, and node = 2 means the rightNode is the smallest
+        if leftNode is not None and leftNode["value"] < parentNode["value"]:
+            node = 1
+        if rightNode is not None and ((node == 1 and rightNode["value"] < leftNode["value"]) or (
+                node == 0 and rightNode["value"] < parentNode["value"])):
+            node = 2
 
-        currentNode = [0, 0]
-        MST.append(currentNode)
+        if node == 1:
+            self.array[leftPosition], self.array[parentPosition] = self.array[parentPosition], self.array[leftPosition]
+            self.HeapifyDown(leftPosition)
+        elif node == 2:
+            self.array[rightPosition], self.array[parentPosition] = self.array[parentPosition], self.array[rightPosition]
+            self.HeapifyDown(rightPosition)
 
-        for i in range(1, degree):
-            if i == 1:
-                for j in range(1, degree):
-                    E.heappush(j, self.V[0][j])
-            else:
-                lastVertice = currentNode[0]
-                for j in range(1, degree):
-                    if E.isInMinHeap(j):
-                        if E.arr[E.pos[j]][1] > self.V[lastVertice][j]:
-                            E.decreaseKey(j, self.V[lastVertice][j])
-            currentNode = E.extrudeMin()
-            MST.append(currentNode)
+    def DecreaseValue(self, value, index, connect): #update the value of the node, since it is decreasing the value, only need heapifyup
+        pass
 
-        totalLength = 0
-        last = 0
-        for p in MST:
-            if p[0] != 0:
-                totalLength = totalLength + p[1]
-                print(last, " - ", p[0])
-                last = p[0]
-        print("Total distance of Minimum Spanning Tree is: ", totalLength)
+    def Size(self):
+        return self.count
 
-def readCSV(filename):
-    v = []
-    with open(filename, 'r', newline='') as file:
-        myreader = csv.reader(file, delimiter=',')
-        for rows in myreader:
-            v.append([int(i) for i in rows])
-    return v
+    def GetNode(self, position):    #when position is not out of array range, return node. Otherwise return None
+        if position > self.count:
+            return None #python has None as not exist
+        else:
+            return self.array[position]
 
-g = readCSV('graph.csv')
-graph = Graph()
-graph.importGraph(g)
-# graph.process()
-print(timeit.Timer(graph.process).repeat(number=1))
+
+def HeapSort(array):
+    heap = MinHeap()
+    for i in array:
+        heap.HeapPush(i, i, i)
+    counter = 0
+    while heap.Size() > 0:
+        array[counter] = heap.ExtrudeMin()["value"]
+        counter += 1
+    return array
+
+
+def GenerateArray(size):
+    array = []
+    for i in range(size):
+        array.append(i)
+    random.shuffle(array)
+    return array
+
+
+def test():
+    arr = GenerateArray(100000)
+    arr = HeapSort(arr)
+    #print(arr)
+
+
+test()
